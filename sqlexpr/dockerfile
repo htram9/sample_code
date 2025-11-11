@@ -1,0 +1,33 @@
+# Use a base Windows image (replace with your actual base image name)
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+# Set the shell to PowerShell for better Windows compatibility
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Create a working directory
+WORKDIR C:\\temp
+
+
+# Todo:  Get these kits and tools from the Cloud instead of locally
+# 
+
+# Copy useful tools for windows server core
+# like a friendly text editor
+#
+COPY . C:\\temp
+
+# Perform installation
+#
+RUN ["powershell", "-File", "install-sqlexpr.ps1"]
+
+# Set any environment variables if needed
+# ENV SOFTWARE_HOME="C:\Program Files\YourSoftware"
+
+# Expose any ports your software needs
+ EXPOSE 1433
+
+# Set the default command or entry point
+ENTRYPOINT ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "entry_point.ps1"]
+
+# Clean up any temporary files and reduce image size
+#RUN Remove-Item -Path 'C:\temp\*' -Recurse -Force -ErrorAction SilentlyContinue

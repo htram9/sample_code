@@ -1,0 +1,79 @@
+# This workflow creates just the container for SQL Server Express (2022)
+#
+name: Docker Image CI
+
+on:
+  workflow_dispatch:       # Allow to be triggered manually
+
+  # Uncomment this if I want the docker image to be rebuilt
+  # on checkins to main.  
+  # Currently disabled because I'm running low on minutes on Github's free tier!
+  #
+  #push:
+    #branches: [ "main" ]
+
+  # Outstanding question whether to do anything on pull requests to main?
+  # Issue is that Microsoft Azure current does not support wildcards in the subject claims
+  # and each branch needs to be explicitly authorized.
+  # For example: "subject": "repo:ht-dev/Containers:ref:refs/heads/main"   (supported)
+  # instead of:  "subject": "repo:ht-dev/Containers:ref:refs/heads/*"      (not supported)
+  # See:  https://learn.microsoft.com/en-us/answers/questions/2073829/azure-github-action-federated-identity-login-issue
+  #
+  # The directive below will work, if we explicitly add a federated credential for the specific branch,
+  # but that means adding and removing a credential every time you branch, which is a pain. 
+  # TBD:  Revisit this if we want 
+  #
+  #pull_request:
+    #branches: [ "main" ]
+
+
+permissions:
+  contents: read
+  #pages: write
+  id-token: write # Grant write permission for id-token
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Login to Azure
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.SOFTWARE_DOWNLOADS_AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.SOFTWARE_DOWNLOADS_AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.SOFTWARE_DOWNLOADS_AZURE_SUBSCRIPTION_ID }}
+
+    - name: Download file from Azure Storage
+      run: |
+        az storage blob download `
+          --account-name ${{ secrets.SOFTWARE_DOWNLOADS_AZURE_STORAGE_ACCOUNT }} `
+          --container-name software `
+          --name SQLEXPR2022/SQLEXPR2022.zip `
+          --file "./SQLEXPR2022.zip" `
+          --auth-mode login `
+          --no-progress
+ 
+        Expand-Archive -Path .\SQLEXPR2022.zip -DestinationPath .
+
+        mkdir Tools\vim
+        az storage blob download `
+          --account-name ${{ secrets.SOFTWARE_DOWNLOADS_AZURE_STORAGE_ACCOUNT }} `
+          --container-name software `
+          --name Tools/vim/vim.exe `
+          --file "./Tools/vim/vim.exe" `
+          --auth-mode login `
+          --no-progress
+
+        ls sqlexpr\
+        ls sqlexpr\kit
+        ls Tools\vim
+        echo "Done with this section..."
+
+    - name: Build the Docker image
+      run: |
+        cd sqlexpr 
+        docker build . --file dockerfile --tag sqlexpr2022:$(date +%s)
